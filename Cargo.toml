@@ -12,3 +12,5 @@ anyhow = { version = "1.0.56", features = ["backtrace"] }
 log = "0.4.21"
 clap = { version = "4.4.2", features = ["derive"] }
 dirs = "5.0.0"
+ord = "0.17.1"
+ordinals = "0.0.6"

@@ -3,10 +3,11 @@ use std::thread;
 use std::time::Duration;
 use anyhow::{anyhow, bail, Context, ensure, Error};
 use bitcoincore_rpc::{Auth, Client, RpcApi};
+use bitcoincore_rpc::bitcoin::Network;
+use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
 use crate::options::Options;
-
-type Result<T = (), E = Error> = std::result::Result<T, E>;
+use crate::Result;
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(default, deny_unknown_fields)]
@@ -21,7 +22,7 @@ pub struct Settings {
 
 impl Settings {
   // init bitcoin client here
-  pub(crate) fn bitcoin_rpc_client(&self, wallet: Option<String>) -> Result<Client> {
+  pub(crate) fn bitcoin_rpc_client(&mut self, wallet: Option<String>) -> Result<Client> {
     let rpc_url = self.bitcoin_rpc_url(wallet);
 
     let bitcoin_credentials = self.bitcoin_credentials()?;
@@ -101,6 +102,70 @@ impl Settings {
       bitcoin_rpc_username: options.bitcoin_rpc_username,
       bitcoin_last_block: None,
       cookie_file: None,
+    }
+  }
+
+  fn chain(&self) -> Chain {
+    Chain::Regtest
+  }
+}
+
+#[derive(Default, ValueEnum, Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Chain {
+  #[default]
+  #[value(alias("main"))]
+  Mainnet,
+  #[value(alias("test"))]
+  Testnet,
+  Signet,
+  Regtest,
+}
+
+impl Chain {
+  // pub(crate) fn network(self) -> Network {
+  //   self.into()
+  // }
+
+  pub(crate) fn default_rpc_port(self) -> u16 {
+    match self {
+      Self::Mainnet => 8332,
+      Self::Regtest => 18443,
+      Self::Signet => 38332,
+      Self::Testnet => 18332,
+    }
+  }
+
+  pub(crate) fn inscription_content_size_limit(self) -> Option<usize> {
+    match self {
+      Self::Mainnet | Self::Regtest => None,
+      Self::Testnet | Self::Signet => Some(1024),
+    }
+  }
+
+  pub(crate) fn first_inscription_height(self) -> u32 {
+    match self {
+      Self::Mainnet => 767430,
+      Self::Regtest => 0,
+      Self::Signet => 112402,
+      Self::Testnet => 2413343,
+    }
+  }
+
+  pub(crate) fn jubilee_height(self) -> u32 {
+    match self {
+      Self::Mainnet => 824544,
+      Self::Regtest => 110,
+      Self::Signet => 175392,
+      Self::Testnet => 2544192,
+    }
+  }
+  pub(crate) fn join_with_data_dir(self, data_dir: impl AsRef<Path>) -> PathBuf {
+    match self {
+      Self::Mainnet => data_dir.as_ref().to_owned(),
+      Self::Testnet => data_dir.as_ref().join("testnet3"),
+      Self::Signet => data_dir.as_ref().join("signet"),
+      Self::Regtest => data_dir.as_ref().join("regtest"),
     }
   }
 }
